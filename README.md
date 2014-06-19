@@ -1,7 +1,7 @@
-EventEmitter
+Events.go
 =====
 
-EventEmitter simple emitter for listening and responding to events
+Events.go provides a simple event emitter for listening and responding to events
 
 ##Example
 ```
