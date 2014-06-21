@@ -10,7 +10,7 @@ import (
 var (
 	ErrorInvalidArgument = errors.New("Invalid Argument Kind of Value for listener is not Function")
 	// Default number of listeners before warnings
-	DefaultMaxListeners  = 10
+	DefaultMaxListeners = 10
 )
 
 type EventEmitter struct {
@@ -48,6 +48,7 @@ func (this *EventEmitter) On(event string, listener interface{}) *EventEmitter {
 
 	return this
 }
+
 // same as On
 func (this *EventEmitter) AddListener(event string, listener interface{}) *EventEmitter {
 	return this.On(event, listener)
@@ -99,6 +100,7 @@ func (this *EventEmitter) Off(event string, listener interface{}) *EventEmitter 
 
 	return this
 }
+
 // same as Off
 func (this *EventEmitter) RemoveListener(event string, listener interface{}) *EventEmitter {
 	return this.Off(event, listener)
@@ -152,11 +154,13 @@ func (this *EventEmitter) Emit(event string, arguments ...interface{}) *EventEmi
 	return this
 }
 
+// sets maximun number of listeners on events -1 is unlimited
 func (this *EventEmitter) SetMaxListeners(max int) *EventEmitter {
 	this.maxListeners = max
 	return this
 }
 
+// returns number of listeners on an event
 func (this *EventEmitter) ListenerCount(event string) int {
 
 	return len(this.events[event])

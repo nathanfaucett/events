@@ -8,17 +8,28 @@ Events.go provides a simple event emitter for listening and responding to events
 package main
 
 import (
-	"github.com/nathanfaucett/event_emitter"
+	"github.com/nathanfaucett/events"
 	"fmt"
 )
 
+type Parent stuct{
+	*events.EventEmitter
+}
+
+func NewParent() {
+	this := new(Parent)
+	this.EventEmitter = events.NewEventEmitter()
+}
+
 func main() {
-	var EE = event_emitter.NewEventEmitter();
+	parent := NewParent();
 	
-	EE.On("hello", func(name string) {
+	parent.On("hello", func(name string) {
 		fmt.Println("Hello "+ name)
 	})
 	
-	EE.Emit("hello")
+	parent.Emit("hello")
+	
+	ee := events.NewEventEmitter() //works the same as above
 }
 ```
