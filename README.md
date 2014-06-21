@@ -16,9 +16,11 @@ type Parent stuct{
 	*events.EventEmitter
 }
 
-func NewParent() {
+func NewParent() *Parent {
 	this := new(Parent)
 	this.EventEmitter = events.NewEventEmitter()
+	
+	return this
 }
 
 func main() {
