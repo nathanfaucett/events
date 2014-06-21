@@ -3,19 +3,62 @@ package events
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sync"
 )
 
 var (
-	ErrorInvalidArgument = errors.New("Invalid Argument Kind of Value for listener is not Function")
 	// Default number of listeners before warnings
-	DefaultMaxListeners = 10
+	DefaultMaxListeners  = 10
+	ErrorInvalidArgument = errors.New("Invalid Argument listener is not a Function")
 )
+
+type event_listener struct {
+	function  reflect.Value
+	arguments []reflect.Type
+}
+
+func new_event_listener(function interface{}) *event_listener {
+	fn := reflect.ValueOf(function)
+
+	if fn.Kind() != reflect.Func {
+		fmt.Println(ErrorInvalidArgument)
+		os.Exit(1)
+	}
+
+	var arguments []reflect.Type
+
+	typeof := fn.Type()
+	length := typeof.NumIn()
+	for i := 0; i < length; i++ {
+		arguments = append(arguments, typeof.In(i))
+	}
+
+	this := new(event_listener)
+	this.function = fn
+	this.arguments = arguments
+
+	return this
+}
+
+func (this *event_listener) values(arguments []interface{}) []reflect.Value {
+	var values []reflect.Value
+
+	for i, argument := range arguments {
+		if argument == nil {
+			values = append(values, reflect.Zero(this.arguments[i]))
+		} else {
+			values = append(values, reflect.ValueOf(argument))
+		}
+	}
+
+	return values
+}
 
 type EventEmitter struct {
 	*sync.Mutex
-	events       map[string][]reflect.Value
+	events       map[string][]*event_listener
 	maxListeners int
 }
 
@@ -23,7 +66,7 @@ type EventEmitter struct {
 func NewEventEmitter() *EventEmitter {
 	this := new(EventEmitter)
 	this.Mutex = new(sync.Mutex)
-	this.events = make(map[string][]reflect.Value)
+	this.events = make(map[string][]*event_listener)
 	this.maxListeners = DefaultMaxListeners
 
 	return this
@@ -34,12 +77,7 @@ func (this *EventEmitter) On(event string, listener interface{}) *EventEmitter {
 	this.Lock()
 	defer this.Unlock()
 
-	fn := reflect.ValueOf(listener)
-
-	if reflect.Func != fn.Kind() {
-		fmt.Println(ErrorInvalidArgument)
-		return this
-	}
+	fn := new_event_listener(listener)
 	if this.maxListeners != -1 && this.maxListeners <= len(this.events[event]) {
 		fmt.Printf("Warning: event \"%v\" has exceeded the maximum number of listeners of %d\n", event, this.maxListeners)
 	}
@@ -56,26 +94,27 @@ func (this *EventEmitter) AddListener(event string, listener interface{}) *Event
 
 // attachs listener to this event emitter after first fire it removes itself from the events
 func (this *EventEmitter) Once(event string, listener interface{}) *EventEmitter {
-	fn := reflect.ValueOf(listener)
+	this.Lock()
+	defer this.Unlock()
 
-	if reflect.Func != fn.Kind() {
-		fmt.Println(ErrorInvalidArgument)
-		return this
+	fn := new_event_listener(listener)
+
+	if this.maxListeners != -1 && this.maxListeners <= len(this.events[event]) {
+		fmt.Printf("Warning: event \"%v\" has exceeded the maximum number of listeners of %d\n", event, this.maxListeners)
 	}
 
-	var once func(...interface{})
-	once = func(arguments ...interface{}) {
-		defer this.Off(event, once)
-		var values []reflect.Value
-
-		for i := 0; i < len(arguments); i++ {
-			values = append(values, reflect.ValueOf(arguments[i]))
-		}
-
-		fn.Call(values)
+	var warp func(...interface{})
+	warp = func(arguments ...interface{}) {
+		defer this.Off(event, warp)
+		fn.function.Call(fn.values(arguments))
 	}
 
-	return this.On(event, once)
+	once := new_event_listener(warp)
+	once.arguments = fn.arguments
+
+	this.events[event] = append(this.events[event], once)
+
+	return this
 }
 
 // removes listener from this event emitter
@@ -92,7 +131,7 @@ func (this *EventEmitter) Off(event string, listener interface{}) *EventEmitter 
 
 	if eventList, ok := this.events[event]; ok {
 		for i, listener := range eventList {
-			if fn == listener {
+			if fn == listener.function {
 				this.events[event] = append(this.events[event][:i], this.events[event][i+1:]...)
 			}
 		}
@@ -121,7 +160,7 @@ func (this *EventEmitter) RemoveAllListeners() *EventEmitter {
 // emits event and calls all listeners with passed arguments
 func (this *EventEmitter) Emit(event string, arguments ...interface{}) *EventEmitter {
 	var (
-		eventList []reflect.Value
+		eventList []*event_listener
 		ok        bool
 	)
 
@@ -132,22 +171,22 @@ func (this *EventEmitter) Emit(event string, arguments ...interface{}) *EventEmi
 	}
 	this.Unlock()
 
-	var (
-		waitGroup sync.WaitGroup
-		values    []reflect.Value
-	)
-
-	length := len(arguments)
-	for i := 0; i < length; i++ {
-		values = append(values, reflect.ValueOf(arguments[i]))
-	}
+	var waitGroup sync.WaitGroup
 
 	waitGroup.Add(len(eventList))
-	for _, fn := range eventList {
+	for _, listener := range eventList {
+		values := listener.values(arguments)
+
 		go func(fn reflect.Value) {
+			defer func() {
+				if r := recover(); nil != r {
+					err := errors.New(fmt.Sprintf("%v", r))
+					fmt.Println(err)
+				}
+			}()
 			defer waitGroup.Done()
 			fn.Call(values)
-		}(fn)
+		}(listener.function)
 	}
 	waitGroup.Wait()
 
