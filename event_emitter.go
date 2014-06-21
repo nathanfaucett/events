@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrorInvalidArgument = errors.New("Invalid Argument Kind of Value for listener is not Function")
+	// Default number of listeners before warnings
 	DefaultMaxListeners  = 10
 )
 
@@ -18,6 +19,7 @@ type EventEmitter struct {
 	maxListeners int
 }
 
+// Creates new EventEmitter
 func NewEventEmitter() *EventEmitter {
 	this := new(EventEmitter)
 	this.Mutex = new(sync.Mutex)
@@ -27,6 +29,7 @@ func NewEventEmitter() *EventEmitter {
 	return this
 }
 
+// attachs listener to this event emitter
 func (this *EventEmitter) On(event string, listener interface{}) *EventEmitter {
 	this.Lock()
 	defer this.Unlock()
@@ -45,10 +48,12 @@ func (this *EventEmitter) On(event string, listener interface{}) *EventEmitter {
 
 	return this
 }
+// same as On
 func (this *EventEmitter) AddListener(event string, listener interface{}) *EventEmitter {
 	return this.On(event, listener)
 }
 
+// attachs listener to this event emitter after first fire it removes itself from the events
 func (this *EventEmitter) Once(event string, listener interface{}) *EventEmitter {
 	fn := reflect.ValueOf(listener)
 
@@ -72,6 +77,7 @@ func (this *EventEmitter) Once(event string, listener interface{}) *EventEmitter
 	return this.On(event, once)
 }
 
+// removes listener from this event emitter
 func (this *EventEmitter) Off(event string, listener interface{}) *EventEmitter {
 	this.Lock()
 	defer this.Unlock()
@@ -86,28 +92,31 @@ func (this *EventEmitter) Off(event string, listener interface{}) *EventEmitter 
 	if eventList, ok := this.events[event]; ok {
 		for i, listener := range eventList {
 			if fn == listener {
-				eventList = append(eventList[:i], eventList[i+1:]...)
+				this.events[event] = append(this.events[event][:i], this.events[event][i+1:]...)
 			}
 		}
 	}
 
 	return this
 }
+// same as Off
 func (this *EventEmitter) RemoveListener(event string, listener interface{}) *EventEmitter {
 	return this.Off(event, listener)
 }
 
+// removes all events from this
 func (this *EventEmitter) RemoveAllListeners() *EventEmitter {
 	this.Lock()
 	defer this.Unlock()
 
-	for eventList := range this.events {
-		eventList = eventList[:0]
+	for event, _ := range this.events {
+		this.events[event] = this.events[event][:0]
 	}
 
 	return this
 }
 
+// emits event and calls all listeners with passed arguments
 func (this *EventEmitter) Emit(event string, arguments ...interface{}) *EventEmitter {
 	var (
 		eventList []reflect.Value
