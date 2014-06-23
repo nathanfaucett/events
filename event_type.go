@@ -8,6 +8,10 @@ import (
 	"sync"
 )
 
+var (
+	ErrorInvalidArgument = errors.New("Invalid Argument listener is not a Function")
+)
+
 type event_list struct {
 	listeners []reflect.Value
 	arguments []reflect.Type

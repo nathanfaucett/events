@@ -8,8 +8,7 @@ import (
 
 var (
 	// Default number of listeners before warnings
-	DefaultMaxListeners  = 10
-	ErrorInvalidArgument = errors.New("Invalid Argument listener is not a Function")
+	DefaultMaxListeners = 10
 )
 
 type EventEmitter struct {
@@ -86,6 +85,9 @@ func (this *EventEmitter) Off(event string, listener interface{}) *EventEmitter 
 
 	if events, ok := this.events[event]; ok {
 		events.remove(listener)
+		if events.length() == 0 {
+			delete(this.events, event)
+		}
 	}
 
 	return this
@@ -101,8 +103,9 @@ func (this *EventEmitter) RemoveAllListeners() *EventEmitter {
 	this.Lock()
 	defer this.Unlock()
 
-	for _, events := range this.events {
+	for key, events := range this.events {
 		events.clear()
+		delete(this.events, key)
 	}
 
 	return this
