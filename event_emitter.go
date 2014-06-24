@@ -1,7 +1,6 @@
 package events
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 )
@@ -13,6 +12,7 @@ var (
 
 type EventEmitter struct {
 	*sync.Mutex
+
 	events        map[string]*event_list
 	max_listeners int
 }
@@ -21,6 +21,7 @@ type EventEmitter struct {
 func NewEventEmitter() *EventEmitter {
 	this := new(EventEmitter)
 	this.Mutex = new(sync.Mutex)
+
 	this.events = make(map[string]*event_list)
 	this.max_listeners = DefaultMaxListeners
 
